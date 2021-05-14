@@ -4,6 +4,7 @@
 - ChineseChess 象棋
 - Puzzle 拼图
 - Sokoban 推箱子
+- link game 连连看
 - ...
 
 ### 运行
