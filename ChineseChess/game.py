@@ -1,8 +1,13 @@
 # coding=utf-8
 from pygame import font, draw, init, display, transform, image, time, mouse, event, QUIT, MOUSEBUTTONUP
+from pygame.constants import USEREVENT
 from settings import Setting
 import sys
-import os
+import threading
+import wave
+import numpy as np
+import pyaudio
+from aip import AipSpeech
 
 
 def text_objects(text, font, color):
@@ -66,7 +71,7 @@ def hui_qi():
 
 def new_game():
     global coors_plate, start, load, who_go, over
-    who_go = 0
+    who_go = 1
     start, load, over = True, False, 0
     coors_plate.clear()
     for i in range(0, 10):
@@ -86,8 +91,8 @@ def save_game():
 
 
 def load_game():
-    global start, load, who_go, second_click, first_click, over
-    start, load, second_click, first_click, over = False, True, False, True, 0
+    global start, load, who_go, first_click, over
+    start, load, first_click, over = False, True, True, 0
     coors_plate.clear()
     c_coors_plate.clear()
     for i in range(0, 10):
@@ -119,36 +124,6 @@ def translation(coor):
     else:
         roww = (y-32-15)//75
     return roww, coll
-
-
-def click_chess(side):
-    global first_click, second_click, first_click_coor, who_go, hui_yi_bu, start, chess
-    if first_click:
-        first_click_coor = [0, 0, 0]
-        for coor in coors_all[side]:
-            if coor[0] < Mouse[0] < coor[0] + 60 and coor[1] < Mouse[1] < coor[1] + 60:
-                coors_plate[coor[2]][coor[3]] += 1
-                first_click_coor[0], first_click_coor[1], first_click_coor[2] = \
-                    coors_plate[coor[2]][coor[3]] - 1, coor[2], coor[3]
-                chess = detect_legal_move(first_click_coor)
-                current_chess.clear()
-                current_chess.append(first_click_coor)
-                first_click, second_click, start = False, True, True  # 直接读档需要start = True让who_go进行变化
-                break
-    elif second_click:
-        clean_non_selected()
-        for legal in legal_move[chess]:
-            second_click_coor = translation(Mouse)
-            if second_click_coor[0] == legal[0] and second_click_coor[1] == legal[1]:  # x1 == x2, y1 == y2
-                update_c_coors_plate()
-                if coors_plate[second_click_coor[0]][second_click_coor[1]] == 0 or \
-                        str(coors_plate[second_click_coor[0]][second_click_coor[1]])[1] != str(side):
-                    coors_plate[second_click_coor[0]][second_click_coor[1]] = first_click_coor[0]  # 画上新的棋子
-                    coors_plate[first_click_coor[1]][first_click_coor[2]] = 0  # 去掉旧的棋子
-                    who_go += 1
-                    hui_yi_bu = True
-                break
-        first_click, second_click = True, False
 
 
 def detect_legal_move(coor):
@@ -323,6 +298,307 @@ def update_c_coors_plate():
         c_coors_plate.append(coors_plate[i].copy())
 
 
+def click_chess(side):
+    global first_click, first_click_coor, who_go, hui_yi_bu, start, chess
+    if first_click:
+        first_click_coor = [0, 0, 0]
+        for coor in coors_all[side]:
+            if coor[0] < Mouse[0] < coor[0] + 60 and coor[1] < Mouse[1] < coor[1] + 60:
+                coors_plate[coor[2]][coor[3]] += 1
+                first_click_coor[0], first_click_coor[1], first_click_coor[2] = \
+                    coors_plate[coor[2]][coor[3]] - 1, coor[2], coor[3]
+                chess = detect_legal_move(first_click_coor)
+                first_click, start = False, True  # 直接读档需要start = True让who_go进行变化
+                break
+    else:
+        clean_non_selected()
+        for legal in legal_move[chess]:
+            second_click_coor = translation(Mouse)
+            if second_click_coor[0] == legal[0] and second_click_coor[1] == legal[1]:  # x1 == x2, y1 == y2
+                update_c_coors_plate()
+                if coors_plate[second_click_coor[0]][second_click_coor[1]] == 0 or \
+                        str(coors_plate[second_click_coor[0]][second_click_coor[1]])[1] != str(side):
+                    coors_plate[second_click_coor[0]][second_click_coor[1]] = first_click_coor[0]  # 画上新的棋子
+                    coors_plate[first_click_coor[1]][first_click_coor[2]] = 0  # 去掉旧的棋子
+                    who_go += 1
+                    hui_yi_bu = True
+                break
+        first_click = True
+
+
+def voice_control(side):
+    global first_click, first_click_coor, who_go, hui_yi_bu, start, chess, record
+    first_click_coor = [0, 0, 0]
+    if record[1] < 10:
+        for i, row in enumerate(coors_plate):
+            if str(row[9 - record[1]])[0] == str(record[0]) and str(row[9 - record[1]])[1] == str(side):
+                coors_plate[i][9 - record[1]] += 1
+                first_click_coor[0], first_click_coor[1], first_click_coor[2] = \
+                    coors_plate[i][9 - record[1]] - 1, i, 9 - record[1]
+                chess = detect_legal_move(first_click_coor)
+                first_click, start = False, True  # 直接读档需要start = True让who_go进行变化
+                break
+    elif record[1] == 10:
+        for i, row in enumerate(coors_plate):
+            for ii, col in enumerate(row):
+                if str(col)[0] == str(record[0]) and str(col)[1] == str(side):
+                    coors_plate[i][ii] += 1
+                    first_click_coor[0], first_click_coor[1], first_click_coor[2] = \
+                        coors_plate[i][ii] - 1, i, ii
+                    chess = detect_legal_move(first_click_coor)
+                    first_click, start = False, True  # 直接读档需要start = True让who_go进行变化
+                    break
+            if first_click == False:
+                break
+    elif record[1] == 11:
+        iii = 0
+        for i, row in enumerate(coors_plate):
+            for ii, col in enumerate(row):
+                if str(col)[0] == str(record[0]) and str(col)[1] == str(side):
+                    coors_plate[i][ii] += 1
+                    first_click_coor[0], first_click_coor[1], first_click_coor[2] = \
+                        coors_plate[i][ii] - 1, i, ii
+                    chess = detect_legal_move(first_click_coor)
+                    first_click, start = False, True  # 直接读档需要start = True让who_go进行变化
+                    iii = iii + 1
+                    break
+            if iii == 2:
+                break
+    if first_click == True:
+        print("语音指令错误！")
+    else:
+        clean_non_selected()
+        second_click_coor = [100, 100]
+        if record[0] == 1 or record[0] == 5 or record[0] == 6 or record[0] == 7:
+            if record[2] == 1:
+                second_click_coor = [first_click_coor[1] - record[3], first_click_coor[2]]
+            elif record[2] == 2:
+                second_click_coor = [first_click_coor[1] + record[3], first_click_coor[2]]
+            elif record[2] == 3:
+                second_click_coor = [first_click_coor[1], 9 - record[3]]
+        elif record[0] == 2:
+            if record[2] == 1:
+                if abs(9 - record[3] - first_click_coor[2]) % 2 == 0:
+                    second_click_coor = [first_click_coor[1] - 1, 9 - record[3]]
+                elif abs(9 - record[3] - first_click_coor[2]) % 2 == 1:
+                    second_click_coor = [first_click_coor[1] - 2, 9 - record[3]]
+            elif record[2] == 2:
+                if abs(9 - record[3] - first_click_coor[2]) % 2 == 0:
+                    second_click_coor = [first_click_coor[1] + 1, 9 - record[3]]
+                elif abs(9 - record[3] - first_click_coor[2]) % 2 == 1:
+                    second_click_coor = [first_click_coor[1] + 2, 9 - record[3]]
+        elif record[0] == 3:
+            if record[2] == 1: 
+                second_click_coor = [first_click_coor[1] - 2, 9 - record[3]]
+            elif record[2] == 2:
+                second_click_coor = [first_click_coor[1] + 2, 9 - record[3]]
+        elif record[0] == 4:
+            if record[2] == 1: 
+                second_click_coor = [first_click_coor[1] - 1, 9 - record[3]]
+            elif record[2] == 2:
+                second_click_coor = [first_click_coor[1] + 1, 9 - record[3]]
+        if second_click_coor == [100, 100]:
+            print("语音指令错误！")
+        else:
+            for legal in legal_move[chess]:
+                if second_click_coor[0] == legal[0] and second_click_coor[1] == legal[1]:  # x1 == x2, y1 == y2
+                    update_c_coors_plate()
+                    if coors_plate[second_click_coor[0]][second_click_coor[1]] == 0 or \
+                            str(coors_plate[second_click_coor[0]][second_click_coor[1]])[1] != str(side):
+                        coors_plate[second_click_coor[0]][second_click_coor[1]] = first_click_coor[0]  # 画上新的棋子
+                        coors_plate[first_click_coor[1]][first_click_coor[2]] = 0  # 去掉旧的棋子
+                        who_go += 1
+                        hui_yi_bu = True
+                        first_click = True
+                    break
+            if first_click == False:
+                print("语音指令错误！")
+                first_click = True
+    record = [0, 0, 0, 0]
+
+
+def get_file_content(file_path):
+    with open(file_path, 'rb') as fp:
+        return fp.read()
+
+
+def record_voice():
+    global record
+    APP_ID = '24142986'
+    API_KEY = 'lz8wrZPBovwoWXqpL2FRBtDX'
+    SECRET_KEY = '34kKxkbMKB8VaqWZRQxV1y4QbPNW0xkG'
+
+    client = AipSpeech(APP_ID, API_KEY, SECRET_KEY)
+
+
+    CHUNK = 1024
+    FORMAT = pyaudio.paInt16  # 16bit编码格式
+    CHANNELS = 1  # 单声道
+    RATE = 16000  # 16000采样频率
+
+    while True:
+        p = pyaudio.PyAudio()
+        # 创建音频流
+        stream = p.open(format=FORMAT,  # 音频流wav格式
+                        channels=CHANNELS,  # 单声道
+                        rate=RATE,  # 采样率16000
+                        input=True,
+                        frames_per_buffer=CHUNK)
+        print("Start Recording...")
+        frames = []  # 录制的音频流
+        # 录制音频数据
+        while True:
+            # print("begin")
+            for i in range(0, 2):
+                data1 = stream.read(CHUNK)
+                frames.append(data1)
+            audio_data1 = np.fromstring(data1, dtype=np.short)
+            temp1 = np.max(audio_data1)
+            if temp1 > 550:
+                # print("检测到信号")
+                # print('当前阈值：', temp1)
+                less = 0
+                while True:
+                    # print("recording")
+                    for i in range(0, 5):
+                        data2 = stream.read(CHUNK)
+                        frames.append(data2)
+                    audio_data2 = np.fromstring(data2, dtype=np.short)
+                    temp2 = np.max(audio_data2)
+                    if temp2 < 550:
+                        less = less + 1
+                        # print("below threshold, counting: ", less, '当前阈值：', temp2)
+                        # 如果有连续15个循环的点，都不是声音信号，就认为音频结束了
+                        if less == 2:
+                            break
+                    else:
+                        less = 0
+                        # print('当前阈值：', temp2)
+                break
+            else:
+                frames = []
+        # 录制完成
+        stream.stop_stream()
+        stream.close()
+        p.terminate()
+        print("Recording Done...")
+        # 保存音频文件
+        with wave.open("./1.wav", 'wb') as wf:
+            wf.setnchannels(CHANNELS)
+            wf.setsampwidth(p.get_sample_size(FORMAT))
+            wf.setframerate(RATE)
+            wf.writeframes(b''.join(frames))
+            wf.close()
+        
+        result = ''.join(client.asr(get_file_content('1.wav'), 'wav', 16000, {
+            'dev_pid': 1537,  # 默认1537（普通话 输入法模型），dev_pid参数见本节开头的表格
+        })["result"])
+        print(result)
+        if result == "结束。":
+            break
+        elif result == "开始。":
+            my_event = event.Event(USEREVENT + 3)
+            event.post(my_event)
+            continue
+        elif result == "存档。":
+            my_event = event.Event(USEREVENT + 4)
+            event.post(my_event)
+            continue
+        elif result == "读档。":
+            my_event = event.Event(USEREVENT + 5)
+            event.post(my_event)
+            continue
+        elif result == "悔棋。":
+            my_event = event.Event(USEREVENT + 6)
+            event.post(my_event)
+            continue
+        elif len(result) > 4:
+            if result[0] == "车":
+                record[0] = 1
+            elif result[0] == "马":
+                record[0] = 2
+            elif result[0] == "象" or result[0] == "相":
+                record[0] = 3
+            elif result[0] == "士":
+                record[0] = 4
+            elif result[0] == "帅" or result[0] == "将":
+                record[0] = 5
+            elif result[0] == "炮":
+                record[0] = 6
+            elif result[0] == "兵" or result[0] == "卒":
+                record[0] = 7
+            elif result[0] == "前":
+                record[1] = 10
+            elif result[0] == "后":
+                record[1] = 11
+            if result[1] == "一":
+                record[1] = 1
+            elif result[1] == "二":
+                record[1] = 2
+            elif result[1] == "三":
+                record[1] = 3
+            elif result[1] == "四":
+                record[1] = 4
+            elif result[1] == "五":
+                record[1] = 5
+            elif result[1] == "六":
+                record[1] = 6
+            elif result[1] == "七":
+                record[1] = 7
+            elif result[1] == "八":
+                record[1] = 8
+            elif result[1] == "九":
+                record[1] = 9
+            elif result[1] == "车":
+                record[0] = 1
+            elif result[1] == "马":
+                record[0] = 2
+            elif result[1] == "象" or result[1] == "相":
+                record[0] = 3
+            elif result[1] == "士":
+                record[0] = 4
+            elif result[1] == "炮":
+                record[0] = 6
+            elif result[1] == "兵" or result[1] == "卒":
+                record[0] = 7
+            if result[2] == "进":
+                record[2] = 1
+            elif result[2] == "退":
+                record[2] = 2
+            elif result[2] == "平":
+                record[2] = 3
+            if result[3] == "一":
+                record[3] = 1
+            elif result[3] == "二":
+                record[3] = 2
+            elif result[3] == "三":
+                record[3] = 3
+            elif result[3] == "四":
+                record[3] = 4
+            elif result[3] == "五":
+                record[3] = 5
+            elif result[3] == "六":
+                record[3] = 6
+            elif result[3] == "七":
+                record[3] = 7
+            elif result[3] == "八":
+                record[3] = 8
+            elif result[3] == "九":
+                record[3] = 9
+        if record[0] == 0 or record[1] == 0 or record[2] == 0 or record[3] == 0:
+            record = [0, 0, 0, 0]
+            print("语音指令错误！")
+        else:
+            my_event = event.Event(USEREVENT + 1)
+            event.post(my_event)
+    my_event = event.Event(USEREVENT + 2)
+    event.post(my_event)
+        
+
+
+    
+
+
 init()
 background = image.load('background.png')
 background = transform.scale(background, (1000, 800))
@@ -335,10 +611,10 @@ gray = (100, 100, 100)
 white = (255, 255, 255)
 who_go = 0  # even means red goes first, old means black goes first
 chess = 0
+first_click_coor = []
 start = False
 load = False
 first_click = True
-second_click = False
 mouse_up = False
 hui_yi_bu = False
 
@@ -347,10 +623,11 @@ coors_chess = Setting.coors_chess
 legal_move = Setting.legal_move
 coors_plate = []
 c_coors_plate = []
-current_chess = []
 jiang_shuai = []
 over = 0
-
+record = [0, 0, 0, 0]
+record_thread = threading.Thread(target=record_voice)
+record_thread.start()
 while True:
     main_window.blit(background, (0, 0))
     Mouse = mouse.get_pos()
@@ -412,9 +689,9 @@ while True:
     # 显示回合
     if start or load:
         if who_go % 2 == 0:
-            text_display(main_window, red, '红方先', 30, [900, 717], 'simhei')
+            text_display(main_window, red, '红方', 30, [900, 717], 'simhei')
         else:
-            text_display(main_window, black, '黑方先', 30, [900, 717], 'simhei')
+            text_display(main_window, black, '黑方', 30, [900, 717], 'simhei')
     if start or load:
         over = game_over()
         if over == 1:
@@ -431,5 +708,20 @@ while True:
                     click_chess(0)  # eg. chess = [709, 707, 9, 8] - x, y, row, col
                 elif who_go % 2 == 1 and over != 1:
                     click_chess(1)
+        if Event.type == USEREVENT + 1:
+            if who_go % 2 == 0 and over != 1:
+                voice_control(0)  # eg. chess = [709, 707, 9, 8] - x, y, row, col
+            elif who_go % 2 == 1 and over != 1:
+                voice_control(1)
+        if Event.type == USEREVENT + 2:
+            sys.exit()
+        if Event.type == USEREVENT + 3:
+            new_game()
+        if Event.type == USEREVENT + 4:
+            save_game()
+        if Event.type == USEREVENT + 5:
+            load_game()
+        if Event.type == USEREVENT + 6:
+            hui_qi()
     display.update()
     clock.tick()
