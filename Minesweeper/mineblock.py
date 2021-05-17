@@ -1,10 +1,10 @@
 import random
 from enum import Enum
 
-BLOCK_WIDTH = 30
-BLOCK_HEIGHT = 16
-SIZE = 20           # 块大小
-MINE_COUNT = 99     # 地雷数
+BLOCK_WIDTH = 9
+BLOCK_HEIGHT = 9
+SIZE = 25           # 块大小
+MINE_COUNT = 10     # 地雷数
 
 
 class BlockStatus(Enum):

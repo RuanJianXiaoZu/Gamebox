@@ -175,7 +175,7 @@ def main():
         print_text(screen, font1, 30, (SIZE * 2 - fheight) // 2 - 2, '%02d' % (MINE_COUNT - flag_count), red)
         if game_status == GameStatus.started:
             elapsed_time = int(time.time() - start_time)
-        print_text(screen, font1, SCREEN_WIDTH - fwidth - 30, (SIZE * 2 - fheight) // 2 - 2, '%03d' % elapsed_time, red)
+        print_text(screen, font1, face_pos_x + 37, (SIZE * 2 - fheight) // 2 - 2, '%03d' % elapsed_time, red)
 
         if flag_count + opened_count == BLOCK_WIDTH * BLOCK_HEIGHT:
             game_status = GameStatus.win
