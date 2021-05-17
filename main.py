@@ -9,6 +9,8 @@ sg.theme('Default 1')
 layout = [
     [sg.Text("Welcome! Select a game below: ")],
     [sg.Button('ChineseChess', enable_events=True)],
+    [sg.Button('link game', enable_events=True)],
+    [sg.Button('Minesweeper', enable_events=True)],
     [sg.Button('Puzzle', enable_events=True)],
     [sg.Button('Sokoban', enable_events=True)],
     [sg.Button('Exit', enable_events=True)]
@@ -21,6 +23,10 @@ while True:
     print(event, values)
     if event == 'ChineseChess':
         os.system('python ./ChineseChess/game.py')
+    if event == 'link game':
+        os.system('python ./link game/main.py')
+    if event == 'Minesweeper':
+        os.system('python ./Minesweeper/main.py')
     if event == 'Puzzle':
         os.system('python ./Puzzle/game.py')
     if event == 'Sokoban':
