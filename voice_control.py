@@ -36,7 +36,7 @@ while True:
         for i in range(0, 2):
             data1 = stream.read(CHUNK)
             frames.append(data1)
-        audio_data1 = np.fromstring(data1, dtype=np.short)
+        audio_data1 = np.frombuffer(data1, dtype=np.short)
         temp1 = np.max(audio_data1)
         if temp1 > 550:
             # print("检测到信号")
@@ -47,7 +47,7 @@ while True:
                 for i in range(0, 5):
                     data2 = stream.read(CHUNK)
                     frames.append(data2)
-                audio_data2 = np.fromstring(data2, dtype=np.short)
+                audio_data2 = np.frombuffer(data2, dtype=np.short)
                 temp2 = np.max(audio_data2)
                 if temp2 < 550:
                     less = less + 1

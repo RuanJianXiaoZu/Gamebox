@@ -16,7 +16,7 @@ layout = [
     [sg.Button('Exit', enable_events=True)]
 ]
 window = sg.Window('GameBox', layout, finalize=True)
-window.Size = (400, 200)
+window.Size = (400, 300)
 
 while True:
     event, values = window.read()

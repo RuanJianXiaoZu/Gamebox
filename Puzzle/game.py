@@ -2,7 +2,15 @@ import os
 import sys
 import cfg
 import random
+import time
 import pygame
+from pygame import event
+from pygame.constants import USEREVENT
+import threading
+import wave
+import numpy as np
+import pyaudio
+from aip import AipSpeech
 
 
 '''判断游戏是否结束'''
@@ -89,27 +97,141 @@ def ShowStartInterface(screen, width, height):
     tfont = pygame.font.Font(cfg.FONTPATH, width//4)
     cfont = pygame.font.Font(cfg.FONTPATH, width//20)
     title = tfont.render('拼图游戏', True, cfg.RED)
-    content1 = cfont.render('按H或M或L键开始游戏', True, cfg.BLUE)
-    content2 = cfont.render('H为5*5模式, M为4*4模式, L为3*3模式', True, cfg.BLUE)
+    content1 = cfont.render('简单模式(L) 3x3', True, cfg.BLUE)
+    content2 = cfont.render('中等模式(M) 4x4', True, cfg.BLUE)
+    content3 = cfont.render('困难模式(H) 5x5', True, cfg.BLUE)
     trect = title.get_rect()
     trect.midtop = (width/2, height/10)
     crect1 = content1.get_rect()
     crect1.midtop = (width/2, height/2.2)
     crect2 = content2.get_rect()
     crect2.midtop = (width/2, height/1.8)
+    crect3 = content3.get_rect()
+    crect3.midtop = (width/2, height/1.5)
     screen.blit(title, trect)
     screen.blit(content1, crect1)
     screen.blit(content2, crect2)
+    screen.blit(content3, crect3)
     while True:
         for event in pygame.event.get():
-            if (event.type == pygame.QUIT) or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+            if (event.type == pygame.QUIT) or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE) or (event.type == USEREVENT + 2):
+                isOver = True
                 pygame.quit()
                 sys.exit()
             elif event.type == pygame.KEYDOWN:
                 if event.key == ord('l'): return 3
                 elif event.key == ord('m'): return 4
                 elif event.key == ord('h'): return 5
+            elif event.type == USEREVENT + 2: return 3
+            elif event.type == USEREVENT + 3: return 4
+            elif event.type == USEREVENT + 4: return 5
         pygame.display.update()
+
+def get_file_content(file_path):
+    with open(file_path, 'rb') as fp:
+        return fp.read()
+
+
+def record_voice():
+    global isOver
+    APP_ID = '24142986'
+    API_KEY = 'lz8wrZPBovwoWXqpL2FRBtDX'
+    SECRET_KEY = '34kKxkbMKB8VaqWZRQxV1y4QbPNW0xkG'
+
+    client = AipSpeech(APP_ID, API_KEY, SECRET_KEY)
+
+    CHUNK = 1024
+    FORMAT = pyaudio.paInt16  # 16bit编码格式
+    CHANNELS = 1  # 单声道
+    RATE = 16000  # 16000采样频率
+
+    while True:
+        if isOver: break
+        p = pyaudio.PyAudio()
+        # 创建音频流
+        stream = p.open(format=FORMAT,  # 音频流wav格式
+                        channels=CHANNELS,  # 单声道
+                        rate=RATE,  # 采样率16000
+                        input=True,
+                        frames_per_buffer=CHUNK)
+        print("Start Recording...")
+        frames = []  # 录制的音频流
+        # 录制音频数据
+        while True:
+            # print("begin")
+            for i in range(0, 2):
+                data1 = stream.read(CHUNK)
+                frames.append(data1)
+            audio_data1 = np.frombuffer(data1, dtype=np.short)
+            temp1 = np.max(audio_data1)
+            if temp1 > 550:
+                less = 0
+                while True:
+                    # print("recording")
+                    for i in range(0, 5):
+                        data2 = stream.read(CHUNK)
+                        frames.append(data2)
+                    audio_data2 = np.frombuffer(data2, dtype=np.short)
+                    temp2 = np.max(audio_data2)
+                    if temp2 < 550:
+                        less = less + 1
+                        if less == 2:
+                            break
+                    else:
+                        less = 0
+                break
+            else:
+                frames = []
+        # 录制完成
+        stream.stop_stream()
+        stream.close()
+        p.terminate()
+        print("Recording Done...")
+        # 保存音频文件
+        with wave.open("./1.wav", 'wb') as wf:
+            wf.setnchannels(CHANNELS)
+            wf.setsampwidth(p.get_sample_size(FORMAT))
+            wf.setframerate(RATE)
+            wf.writeframes(b''.join(frames))
+            wf.close()
+        
+        result = ''.join(client.asr(get_file_content('1.wav'), 'wav', 16000, {
+            'dev_pid': 1537,  # 默认1537（普通话 输入法模型）
+        })["result"])
+        print(result)
+
+        if result == "结束。":
+            my_event = event.Event(USEREVENT + 2)
+            event.post(my_event)
+            break
+        elif result == "简单模式。":
+            my_event = event.Event(USEREVENT + 3)
+            event.post(my_event)
+            continue
+        elif result == "中等模式。":
+            my_event = event.Event(USEREVENT + 4)
+            event.post(my_event)
+            continue
+        elif result == "困难模式。":
+            my_event = event.Event(USEREVENT + 5)
+            event.post(my_event)
+            continue
+        elif result == "左。":
+            my_event = event.Event(USEREVENT + 6)
+            event.post(my_event)
+            continue
+        elif result == "右。":
+            my_event = event.Event(USEREVENT + 7)
+            event.post(my_event)
+            continue
+        elif result == "上。":
+            my_event = event.Event(USEREVENT + 8)
+            event.post(my_event)
+            continue
+        elif result == "下。":
+            my_event = event.Event(USEREVENT + 9)
+            event.post(my_event)
+            continue
 
 
 '''主函数'''
@@ -123,8 +245,9 @@ def main():
     game_img_used_rect = game_img_used.get_rect()
     # 设置窗口
     screen = pygame.display.set_mode(cfg.SCREENSIZE)
-    pygame.display.set_caption('拼图游戏 —— Charles的皮卡丘')
+    pygame.display.set_caption('拼图游戏')
     # 游戏开始界面
+    record_thread.start()
     size = ShowStartInterface(screen, game_img_used_rect.width, game_img_used_rect.height)
     assert isinstance(size, int)
     num_rows, num_cols = size, size
@@ -143,7 +266,8 @@ def main():
         # --事件捕获
         for event in pygame.event.get():
             # ----退出游戏
-            if (event.type == pygame.QUIT) or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+            if (event.type == pygame.QUIT) or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE) or (event.type == USEREVENT + 2):
+                isOver = True
                 pygame.quit()
                 sys.exit()
             # ----键盘操作
@@ -170,6 +294,16 @@ def main():
                     blank_cell_idx = moveU(game_board, blank_cell_idx, num_rows, num_cols)
                 elif idx == blank_cell_idx-num_cols:
                     blank_cell_idx = moveD(game_board, blank_cell_idx, num_cols)
+            # ----语音操作
+            elif event.type == USEREVENT + 6:
+                blank_cell_idx = moveL(game_board, blank_cell_idx, num_cols)
+            elif event.type == USEREVENT + 7:
+                blank_cell_idx = moveR(game_board, blank_cell_idx, num_cols)
+            elif event.type == USEREVENT + 8:
+                blank_cell_idx = moveU(game_board, blank_cell_idx, num_cols)
+            elif event.type == USEREVENT + 9:
+                blank_cell_idx = moveD(game_board, blank_cell_idx, num_cols)
+
         # --判断游戏是否结束
         if isGameOver(game_board, size):
             game_board[blank_cell_idx] = num_cells - 1
@@ -194,6 +328,7 @@ def main():
     ShowEndInterface(screen, game_img_used_rect.width, game_img_used_rect.height)
 
 
-'''run'''
-if __name__ == '__main__':
-    main()
+isOver = False
+record_thread = threading.Thread(target=record_voice)
+record_thread.daemon = True
+main()
