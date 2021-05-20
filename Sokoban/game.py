@@ -4,6 +4,13 @@ import cfg
 import pygame
 from modules import *
 from itertools import chain
+from pygame import event
+from pygame.constants import USEREVENT
+import threading
+import wave
+import numpy as np
+import pyaudio
+from aip import AipSpeech
 
 
 '''游戏地图'''
@@ -127,11 +134,11 @@ def runGame(screen, game_level):
     text_render = font.render(text, 1, (255, 255, 255))
     while True:
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
+            if event.type == pygame.QUIT or event.type == USEREVENT + 2:
                 pygame.quit()
                 sys.exit(0)
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_LEFT:
+            elif event.type == pygame.KEYDOWN or ((event.type > USEREVENT + 2) and (event.type < USEREVENT + 8)):
+                if event.key == pygame.K_LEFT or event.type == USEREVENT + 3:
                     next_pos = game_interface.player.move('left', is_test=True)
                     if game_interface.game_map.isValidPos(*next_pos):
                         game_interface.player.move('left')
@@ -143,7 +150,7 @@ def runGame(screen, game_level):
                                 game_interface.player.move('left')
                                 box.move('left')
                     break
-                if event.key == pygame.K_RIGHT:
+                if event.key == pygame.K_RIGHT or event.type == USEREVENT + 4:
                     next_pos = game_interface.player.move('right', is_test=True)
                     if game_interface.game_map.isValidPos(*next_pos):
                         game_interface.player.move('right')
@@ -155,7 +162,7 @@ def runGame(screen, game_level):
                                 game_interface.player.move('right')
                                 box.move('right')
                     break
-                if event.key == pygame.K_DOWN:
+                if event.key == pygame.K_DOWN or event.type == USEREVENT + 6:
                     next_pos = game_interface.player.move('down', is_test=True)
                     if game_interface.game_map.isValidPos(*next_pos):
                         game_interface.player.move('down')
@@ -167,7 +174,7 @@ def runGame(screen, game_level):
                                 game_interface.player.move('down')
                                 box.move('down')
                     break
-                if event.key == pygame.K_UP:
+                if event.key == pygame.K_UP or event.type == USEREVENT + 5:
                     next_pos = game_interface.player.move('up', is_test=True)
                     if game_interface.game_map.isValidPos(*next_pos):
                         game_interface.player.move('up')
@@ -179,7 +186,7 @@ def runGame(screen, game_level):
                                 game_interface.player.move('up')
                                 box.move('up')
                     break
-                if event.key == pygame.K_r:
+                if event.key == pygame.K_r or event.type == USEREVENT + 7:
                     game_interface.initGame()
                     game_interface.loadLevel(game_level)
         game_interface.draw(game_interface.player, game_interface.game_map)
@@ -189,11 +196,111 @@ def runGame(screen, game_level):
         pygame.display.flip()
         clock.tick(100)
 
+def get_file_content(file_path):
+    with open(file_path, 'rb') as fp:
+        return fp.read()
+
+
+def record_voice():
+    APP_ID = '24142986'
+    API_KEY = 'lz8wrZPBovwoWXqpL2FRBtDX'
+    SECRET_KEY = '34kKxkbMKB8VaqWZRQxV1y4QbPNW0xkG'
+
+    client = AipSpeech(APP_ID, API_KEY, SECRET_KEY)
+
+    CHUNK = 1024
+    FORMAT = pyaudio.paInt16  # 16bit编码格式
+    CHANNELS = 1  # 单声道
+    RATE = 16000  # 16000采样频率
+
+    while True:
+        p = pyaudio.PyAudio()
+        # 创建音频流
+        stream = p.open(format=FORMAT,  # 音频流wav格式
+                        channels=CHANNELS,  # 单声道
+                        rate=RATE,  # 采样率16000
+                        input=True,
+                        frames_per_buffer=CHUNK)
+        print("Start Recording...")
+        frames = []  # 录制的音频流
+        # 录制音频数据
+        while True:
+            # print("begin")
+            for i in range(0, 2):
+                data1 = stream.read(CHUNK)
+                frames.append(data1)
+            audio_data1 = np.frombuffer(data1, dtype=np.short)
+            temp1 = np.max(audio_data1)
+            if temp1 > 550:
+                less = 0
+                while True:
+                    # print("recording")
+                    for i in range(0, 5):
+                        data2 = stream.read(CHUNK)
+                        frames.append(data2)
+                    audio_data2 = np.frombuffer(data2, dtype=np.short)
+                    temp2 = np.max(audio_data2)
+                    if temp2 < 550:
+                        less = less + 1
+                        if less == 2:
+                            break
+                    else:
+                        less = 0
+                break
+            else:
+                frames = []
+        # 录制完成
+        stream.stop_stream()
+        stream.close()
+        p.terminate()
+        print("Recording Done...")
+        # 保存音频文件
+        with wave.open("./1.wav", 'wb') as wf:
+            wf.setnchannels(CHANNELS)
+            wf.setsampwidth(p.get_sample_size(FORMAT))
+            wf.setframerate(RATE)
+            wf.writeframes(b''.join(frames))
+            wf.close()
+        
+        result = ''.join(client.asr(get_file_content('1.wav'), 'wav', 16000, {
+            'dev_pid': 1537,  # 默认1537（普通话 输入法模型）
+        })["result"])
+        print(result)
+
+        if result == "结束。":
+            my_event = event.Event(USEREVENT + 2)
+            event.post(my_event)
+            break
+        elif result == "左。":
+            my_event = event.Event(USEREVENT + 3)
+            event.post(my_event)
+            continue
+        elif result == "右。":
+            my_event = event.Event(USEREVENT + 4)
+            event.post(my_event)
+            continue
+        elif result == "上。":
+            my_event = event.Event(USEREVENT + 5)
+            event.post(my_event)
+            continue
+        elif result == "下。":
+            my_event = event.Event(USEREVENT + 6)
+            event.post(my_event)
+            continue
+        elif result == "重新开始。":
+            my_event = event.Event(USEREVENT + 7)
+            event.post(my_event)
+            continue
+
+
 
 '''主函数'''
 def main():
     pygame.init()
     pygame.mixer.init()
+    record_thread = threading.Thread(target=record_voice)
+    record_thread.daemon = True
+
     pygame.display.set_caption('推箱子 —— Charles的皮卡丘')
     screen = pygame.display.set_mode(cfg.SCREENSIZE)
     pygame.mixer.init()
@@ -201,6 +308,8 @@ def main():
     pygame.mixer.music.load(audio_path)
     pygame.mixer.music.set_volume(0.4)
     pygame.mixer.music.play(-1)
+
+    record_thread.start()
     startInterface(screen, cfg)
     for level_name in sorted(os.listdir(cfg.LEVELDIR)):
         runGame(screen, level_name)

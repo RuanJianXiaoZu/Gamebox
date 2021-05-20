@@ -24,7 +24,7 @@ while True:
     if event == 'ChineseChess':
         os.system('python ./ChineseChess/game.py')
     if event == 'link game':
-        os.system('python ./link game/main.py')
+        os.system('python ./link_game/main.py')
     if event == 'Minesweeper':
         os.system('python ./Minesweeper/main.py')
     if event == 'Puzzle':

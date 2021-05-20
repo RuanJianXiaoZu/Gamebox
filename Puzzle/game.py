@@ -2,7 +2,6 @@ import os
 import sys
 import cfg
 import random
-import time
 import pygame
 from pygame import event
 from pygame.constants import USEREVENT
@@ -133,7 +132,6 @@ def get_file_content(file_path):
 
 
 def record_voice():
-    global isOver
     APP_ID = '24142986'
     API_KEY = 'lz8wrZPBovwoWXqpL2FRBtDX'
     SECRET_KEY = '34kKxkbMKB8VaqWZRQxV1y4QbPNW0xkG'
@@ -146,7 +144,6 @@ def record_voice():
     RATE = 16000  # 16000采样频率
 
     while True:
-        if isOver: break
         p = pyaudio.PyAudio()
         # 创建音频流
         stream = p.open(format=FORMAT,  # 音频流wav格式
@@ -328,7 +325,6 @@ def main():
     ShowEndInterface(screen, game_img_used_rect.width, game_img_used_rect.height)
 
 
-isOver = False
 record_thread = threading.Thread(target=record_voice)
 record_thread.daemon = True
 main()
