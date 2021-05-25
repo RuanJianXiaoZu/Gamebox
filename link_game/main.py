@@ -1,8 +1,16 @@
 #!/usr/bin/env python
+import time
+import wave
+import numpy as np
+from aip import AipSpeech
 import os, random
 import tkinter as tk
 import tkinter.messagebox
+import pyaudio
+import threading
 from PIL import Image, ImageTk
+
+#from voice_control import voice
 
 dirname=os.path.split(os.path.abspath(__file__))[0]
 os.chdir(dirname)
@@ -65,11 +73,12 @@ class MainWindow():
 		self.drawMap()
 		self.__isGameStart = True
 
+    
 	def clickCanvas(self, event):
 		if self.__isGameStart:
 			point = self.getInnerPoint(Point(event.x, event.y))
 			# 有效点击坐标
-			if point.isUserful() and not self.isEmptyInMap(point):
+			if point.isUserful() :
 				if self.__isFirst:
 					self.drawSelectedArea(point)
 					self.__isFirst= False
@@ -168,6 +177,169 @@ class MainWindow():
 	def getY(self, y):
 		return y * self.__iconHeight + self.__delta
 
+	'''
+	上下左右移动
+	'''
+	def right(self, point):
+		if point.x==0:
+			return Point(9, point.y)
+		else:
+			return Point(point.x+1, point.y)
+	
+	def left(self, point):
+		if point.x==9:
+			return Point(0, point.y)
+		else:
+			return Point(point.x-1, point.y)
+	
+	def up(self, point):
+		if point.y==0:
+			return Point(point.x, 9)
+		else:
+			return Point(point.x, point.y-1)
+	
+	def down(self, point):
+		if point.y==9:
+			return Point(point.x, 0)
+		else:
+			return Point(point.x, point.y+1)
+
+	def voice(self):
+		APP_ID = '24142986'
+		API_KEY = 'lz8wrZPBovwoWXqpL2FRBtDX'
+		SECRET_KEY = '34kKxkbMKB8VaqWZRQxV1y4QbPNW0xkG'
+
+		client = AipSpeech(APP_ID, API_KEY, SECRET_KEY)
+
+
+		CHUNK = 1024
+		FORMAT = pyaudio.paInt16  # 16bit编码格式
+		CHANNELS = 1  # 单声道
+		RATE = 16000  # 16000采样频率
+
+		def get_file_content(file_path):
+			with open(file_path, 'rb') as fp:
+				return fp.read()
+
+		while True:
+			p = pyaudio.PyAudio()
+			# 创建音频流
+			stream = p.open(format=FORMAT,  # 音频流wav格式
+							channels=CHANNELS,  # 单声道
+							rate=RATE,  # 采样率16000
+							input=True,
+							frames_per_buffer=CHUNK)
+			print("Start Recording...")
+			frames = []  # 录制的音频流
+			# 录制音频数据
+			while True:
+				# print("begin")
+				for i in range(0, 2):
+					data1 = stream.read(CHUNK)
+					frames.append(data1)
+				audio_data1 = np.frombuffer(data1, dtype=np.short)
+				temp1 = np.max(audio_data1)
+				if temp1 > 550:
+					# print("检测到信号")
+					# print('当前阈值：', temp1)
+					less = 0
+					while True:
+						# print("recording")
+						for i in range(0, 5):
+							data2 = stream.read(CHUNK)
+							frames.append(data2)
+						audio_data2 = np.frombuffer(data2, dtype=np.short)
+						temp2 = np.max(audio_data2)
+						if temp2 < 550:
+							less = less + 1
+							# print("below threshold, counting: ", less, '当前阈值：', temp2)
+							# 如果有连续15个循环的点，都不是声音信号，就认为音频结束了
+							if less == 2:
+								break
+						else:
+							less = 0
+							# print('当前阈值：', temp2)
+					break
+				else:
+					frames = []
+			# 录制完成
+			stream.stop_stream()
+			stream.close()
+			p.terminate()
+			print("Recording Done...")
+			# 保存音频文件
+			with wave.open("./1.wav", 'wb') as wf:
+				wf.setnchannels(CHANNELS)
+				wf.setsampwidth(p.get_sample_size(FORMAT))
+				wf.setframerate(RATE)
+				wf.writeframes(b''.join(frames))
+				wf.close()
+
+			result = ''.join(client.asr(get_file_content('1.wav'), 'wav', 16000, {
+				'dev_pid': 1537,  # 默认1537（普通话 输入法模型），dev_pid参数见本节开头的表格
+			})["result"])
+			print(result)
+			
+			if result=="新游戏。":	
+				self.file_new()
+				point = Point(5, 5)
+				self.drawSelectedArea(point)
+				continue
+			if result=="左。":
+				self.canvas.delete("rectRedOne")
+				point = self.left(point)
+				self.drawSelectedArea(point)
+				continue
+			if result=="右。":
+				self.canvas.delete("rectRedOne")
+				point = self.right(point)
+				self.drawSelectedArea(point)
+				continue
+			if result=="上。":
+				self.canvas.delete("rectRedOne")
+				point = self.up(point)
+				self.drawSelectedArea(point)
+				continue
+			if result=="下。":
+				self.canvas.delete("rectRedOne")
+				point = self.down(point)
+				self.drawSelectedArea(point)
+				continue
+			if self.__isFirst== False:
+				self.drawSelectedArea(self.__formerPoint)
+			if result=="确定。":
+				if point.isUserful() :
+					if self.__isFirst:
+						self.drawSelectedArea(point)
+						self.__isFirst= False
+						self.__formerPoint = point
+						point = Point(5, 5)
+						self.drawSelectedArea(point)
+					else:
+						if self.__formerPoint.isEqual(point):
+							self.__isFirst = True
+							self.canvas.delete("rectRedOne")
+							point = Point(5, 5)
+							self.drawSelectedArea(point)
+						else:
+							linkType = self.getLinkType(self.__formerPoint, point)
+							if linkType['type'] != self.NONE_LINK:
+								# TODO Animation
+								self.ClearLinkedBlocks(self.__formerPoint, point)
+								self.canvas.delete("rectRedOne")
+								self.__isFirst = True
+								if self.isGameEnd():
+									tk.messagebox.showinfo("You Win!", "Tip")
+									self.__isGameStart = False
+								point = Point(5, 5)
+								self.drawSelectedArea(point)	
+							else:
+								self.__formerPoint = point
+								self.canvas.delete("rectRedOne")
+								self.drawSelectedArea(point)
+								point = Point(5, 5)
+								self.drawSelectedArea(point)	
+				continue
 	'''
 	获取内部坐标
 	'''
@@ -349,6 +521,11 @@ class Point():
 		self.x = point.x
 		self.y = point.y
 
+
+
 m = MainWindow()
+record_thread =threading.Thread(target=MainWindow.voice, args=[m, ])
+record_thread.daemon = True
+record_thread.start()
 root.mainloop()
 
