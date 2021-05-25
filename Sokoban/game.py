@@ -301,7 +301,7 @@ def main():
     record_thread = threading.Thread(target=record_voice)
     record_thread.daemon = True
 
-    pygame.display.set_caption('推箱子 —— Charles的皮卡丘')
+    pygame.display.set_caption('推箱子')
     screen = pygame.display.set_mode(cfg.SCREENSIZE)
     pygame.mixer.init()
     audio_path = os.path.join(cfg.AUDIODIR, 'EineLiebe.mp3')

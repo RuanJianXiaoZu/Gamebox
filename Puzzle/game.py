@@ -297,7 +297,7 @@ def main():
             elif event.type == USEREVENT + 7:
                 blank_cell_idx = moveR(game_board, blank_cell_idx, num_cols)
             elif event.type == USEREVENT + 8:
-                blank_cell_idx = moveU(game_board, blank_cell_idx, num_cols)
+                blank_cell_idx = moveU(game_board, blank_cell_idx, num_rows, num_cols)
             elif event.type == USEREVENT + 9:
                 blank_cell_idx = moveD(game_board, blank_cell_idx, num_cols)
 
