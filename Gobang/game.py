@@ -1,8 +1,3 @@
-#!python3
-# -*- coding: utf-8 -*-
-'''
-公众号：一行数据，关注领取5T编程资料
-'''
 import pygame
 from pygame.locals import *
 from sys import exit
