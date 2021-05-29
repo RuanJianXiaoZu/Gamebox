@@ -13,6 +13,7 @@ layout = [
     [sg.Button('Minesweeper', enable_events=True)],
     [sg.Button('Puzzle', enable_events=True)],
     [sg.Button('Sokoban', enable_events=True)],
+    [sg.Button('Gobang', enable_events=True)],
     [sg.Button('Exit', enable_events=True)]
 ]
 window = sg.Window('GameBox', layout, finalize=True)
@@ -31,6 +32,8 @@ while True:
         os.system('python ./Puzzle/game.py')
     if event == 'Sokoban':
         os.system('python ./Sokoban/game.py')
+    if event == 'Gobang':
+        os.system('python ./Gobang/main.py')
     if event == 'Exit' or event == sg.WINDOW_CLOSED:
         break   
 
