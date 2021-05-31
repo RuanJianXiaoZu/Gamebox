@@ -330,6 +330,10 @@ def record_voice():
             my_event = event.Event(USEREVENT + 4)
             event.post(my_event)
             continue
+        elif result == "结束。":
+            my_event = event.Event(QUIT)
+            event.post(my_event)
+            break
 
 
 def main():
