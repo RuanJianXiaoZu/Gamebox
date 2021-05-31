@@ -280,27 +280,31 @@ class MainWindow():
 			})["result"])
 			print(result)
 			
+			if result=="语音控制。":	
+				point = Point(5, 5)
+				self.drawSelectedArea(point)
+				continue
 			if result=="新游戏。":	
 				self.file_new()
 				point = Point(5, 5)
 				self.drawSelectedArea(point)
 				continue
-			if result=="左。":
+			if result=="向左。":
 				self.canvas.delete("rectRedOne")
 				point = self.left(point)
 				self.drawSelectedArea(point)
 				continue
-			if result=="右。":
+			if result=="向右。":
 				self.canvas.delete("rectRedOne")
 				point = self.right(point)
 				self.drawSelectedArea(point)
 				continue
-			if result=="上。":
+			if result=="向上。":
 				self.canvas.delete("rectRedOne")
 				point = self.up(point)
 				self.drawSelectedArea(point)
 				continue
-			if result=="下。":
+			if result=="向下。":
 				self.canvas.delete("rectRedOne")
 				point = self.down(point)
 				self.drawSelectedArea(point)

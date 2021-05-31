@@ -213,19 +213,19 @@ def record_voice():
             my_event = event.Event(USEREVENT + 5)
             event.post(my_event)
             continue
-        elif result == "左。":
+        elif result == "向左。":
             my_event = event.Event(USEREVENT + 6)
             event.post(my_event)
             continue
-        elif result == "右。":
+        elif result == "向右。":
             my_event = event.Event(USEREVENT + 7)
             event.post(my_event)
             continue
-        elif result == "上。":
+        elif result == "向上。":
             my_event = event.Event(USEREVENT + 8)
             event.post(my_event)
             continue
-        elif result == "下。":
+        elif result == "向下。":
             my_event = event.Event(USEREVENT + 9)
             event.post(my_event)
             continue

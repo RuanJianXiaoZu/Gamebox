@@ -150,7 +150,7 @@ class Client(QWidget):
         self.exit_button.setGeometry(300, 560, 70, 30)
         self.exit_button.clicked.connect(self.exit_program)
         self.client = socket.socket()
-        self.client.connect(("127.0.0.1", 8989))
+        self.client.connect(("192.168.43.197", 8989))
         self.list1.clicked.connect(self.choose_user)
         self.list2.clicked.connect(self.reserve_user)
         Thread(target=self.get_msg).start()
