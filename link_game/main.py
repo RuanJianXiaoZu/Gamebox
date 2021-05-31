@@ -284,8 +284,6 @@ class MainWindow():
 				point = Point(5, 5)
 				self.drawSelectedArea(point)
 				continue
-			if result=="结束":
-				exit(0)
 			if result=="新游戏。":	
 				self.file_new()
 				point = Point(5, 5)
