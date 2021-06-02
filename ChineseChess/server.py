@@ -97,7 +97,9 @@ class Server:
                 send_json1 = None
                 send_json2 = None
                 send_msg = {'type': 'quit', 'name': user_dict['name']}
-                send_json = json.dumps(send_msg)
+                send_json3 = json.dumps(send_msg)
+                send_msg = {'type': 'changerecordstatus'}
+                send_json4 = json.dumps(send_msg)
                 for i, u in enumerate(self.user_dicts):
                     if u['name'] == recv_msg['name']:
                         self.user_dicts[i]['status'] = '空闲'
@@ -109,14 +111,28 @@ class Server:
                         send_json2 = json.dumps(send_msg)
                 for d in self.client_dicts:
                     if d['name'] == recv_msg['name']:
-                        d['client'].send(send_json.encode())
+                        d['client'].send(send_json3.encode())
                         d['client'].send(send_json2.encode())
                         continue
                     if d == client_dict:
                         d['client'].send(send_json1.encode())
+                        d['client'].send(send_json4.encode())
                         continue
                     d['client'].send(send_json1.encode())
                     d['client'].send(send_json2.encode())
+            elif recv_msg['type'] == 'exit':
+                send_msg = {'type': 'changerecordstatus'}
+                send_json1 = json.dumps(send_msg)
+                for i, u in enumerate(self.user_dicts):
+                    if u['name'] == user_dict['name']:
+                        self.user_dicts[i]['status'] = '空闲'
+                        send_msg = {'type': 'statuschange', 'user': self.user_dicts[i]}
+                        send_json = json.dumps(send_msg)
+                for d in self.client_dicts:
+                    if d == client_dict:
+                        d['client'].send(send_json1.encode())
+                        continue
+                    d['client'].send(send_json.encode())
             elif recv_msg['type'] == 'reservation':
                 for d in self.client_dicts:
                     if d['name'] == recv_msg['name']:

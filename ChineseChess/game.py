@@ -2,13 +2,10 @@
 from pygame import font, draw, init, display, transform, image, time, mouse, event, QUIT, MOUSEBUTTONUP, quit
 from pygame.constants import USEREVENT
 from settings import Setting
-import sys
-import threading
 import wave
 import numpy as np
 import pyaudio
 from aip import AipSpeech
-import socket
 import json
 import time as tm
 
@@ -435,11 +432,6 @@ class ChineseChess:
                     self.first_click = True
         self.record = [0, 0, 0, 0]
 
-
-    def get_file_content(self, file_path):
-        with open(file_path, 'rb') as fp:
-            return fp.read()
-
     def recvrecord(self, record):
         self.record = record
         my_event = event.Event(USEREVENT + 7)
@@ -451,181 +443,10 @@ class ChineseChess:
         my_event = event.Event(USEREVENT + 9)
         event.post(my_event)
 
-    def record_voice(self):
-        APP_ID = '24142986'
-        API_KEY = 'lz8wrZPBovwoWXqpL2FRBtDX'
-        SECRET_KEY = '34kKxkbMKB8VaqWZRQxV1y4QbPNW0xkG'
-
-        client = AipSpeech(APP_ID, API_KEY, SECRET_KEY)
-
-
-        CHUNK = 1024
-        FORMAT = pyaudio.paInt16  # 16bit编码格式
-        CHANNELS = 1  # 单声道
-        RATE = 16000  # 16000采样频率
-
-        while True:
-            if (self.who_go % 2 == 0):
-                tm.sleep(0.5)
-            else:
-                p = pyaudio.PyAudio()
-                # 创建音频流
-                stream = p.open(format=FORMAT,  # 音频流wav格式
-                                channels=CHANNELS,  # 单声道
-                                rate=RATE,  # 采样率16000
-                                input=True,
-                                frames_per_buffer=CHUNK)
-                print("Start Recording...")
-                frames = []  # 录制的音频流
-                # 录制音频数据
-                while True:
-                    # print("begin")
-                    for i in range(0, 2):
-                        data1 = stream.read(CHUNK)
-                        frames.append(data1)
-                    audio_data1 = np.fromstring(data1, dtype=np.short)
-                    temp1 = np.max(audio_data1)
-                    if temp1 > 550:
-                        # print("检测到信号")
-                        # print('当前阈值：', temp1)
-                        less = 0
-                        while True:
-                            # print("recording")
-                            for i in range(0, 5):
-                                data2 = stream.read(CHUNK)
-                                frames.append(data2)
-                            audio_data2 = np.fromstring(data2, dtype=np.short)
-                            temp2 = np.max(audio_data2)
-                            if temp2 < 550:
-                                less = less + 1
-                                # print("below threshold, counting: ", less, '当前阈值：', temp2)
-                                # 如果有连续15个循环的点，都不是声音信号，就认为音频结束了
-                                if less == 2:
-                                    break
-                            else:
-                                less = 0
-                                # print('当前阈值：', temp2)
-                        break
-                    else:
-                        frames = []
-                # 录制完成
-                stream.stop_stream()
-                stream.close()
-                p.terminate()
-                print("Recording Done...")
-                # 保存音频文件
-                with wave.open("./1.wav", 'wb') as wf:
-                    wf.setnchannels(CHANNELS)
-                    wf.setsampwidth(p.get_sample_size(FORMAT))
-                    wf.setframerate(RATE)
-                    wf.writeframes(b''.join(frames))
-                    wf.close()
-                
-                result = ''.join(client.asr(self.get_file_content('1.wav'), 'wav', 16000, {
-                    'dev_pid': 1537,  # 默认1537（普通话 输入法模型），dev_pid参数见本节开头的表格
-                })["result"])
-                print(result)
-                if result == "结束。":
-                    break
-                elif result == "开始。":
-                    my_event = event.Event(USEREVENT + 3)
-                    event.post(my_event)
-                    continue
-                elif result == "存档。":
-                    my_event = event.Event(USEREVENT + 4)
-                    event.post(my_event)
-                    continue
-                elif result == "读档。":
-                    my_event = event.Event(USEREVENT + 5)
-                    event.post(my_event)
-                    continue
-                elif result == "悔棋。":
-                    my_event = event.Event(USEREVENT + 6)
-                    event.post(my_event)
-                    continue
-                elif len(result) > 4:
-                    if result[0] == "车":
-                        self.record[0] = 1
-                    elif result[0] == "马":
-                        self.record[0] = 2
-                    elif result[0] == "象" or result[0] == "相":
-                        self.record[0] = 3
-                    elif result[0] == "士" or result[0] == "仕":
-                        self.record[0] = 4
-                    elif result[0] == "帅" or result[0] == "将":
-                        self.record[0] = 5
-                    elif result[0] == "炮":
-                        self.record[0] = 6
-                    elif result[0] == "兵" or result[0] == "卒":
-                        self.record[0] = 7
-                    elif result[0] == "前":
-                        self.record[1] = 10
-                    elif result[0] == "后":
-                        self.record[1] = 11
-                    if result[1] == "一":
-                        self.record[1] = 1
-                    elif result[1] == "二":
-                        self.record[1] = 2
-                    elif result[1] == "三":
-                        self.record[1] = 3
-                    elif result[1] == "四":
-                        self.record[1] = 4
-                    elif result[1] == "五":
-                        self.record[1] = 5
-                    elif result[1] == "六":
-                        self.record[1] = 6
-                    elif result[1] == "七":
-                        self.record[1] = 7
-                    elif result[1] == "八":
-                        self.record[1] = 8
-                    elif result[1] == "九":
-                        self.record[1] = 9
-                    elif result[1] == "车":
-                        self.record[0] = 1
-                    elif result[1] == "马":
-                        self.record[0] = 2
-                    elif result[1] == "象" or result[1] == "相":
-                        self.record[0] = 3
-                    elif result[1] == "士" or result[1] == "仕":
-                        self.record[0] = 4
-                    elif result[1] == "炮":
-                        self.record[0] = 6
-                    elif result[1] == "兵" or result[1] == "卒":
-                        self.record[0] = 7
-                    if result[2] == "进":
-                        self.record[2] = 1
-                    elif result[2] == "退":
-                        self.record[2] = 2
-                    elif result[2] == "平":
-                        self.record[2] = 3
-                    if result[3] == "一":
-                        self.record[3] = 1
-                    elif result[3] == "二":
-                        self.record[3] = 2
-                    elif result[3] == "三":
-                        self.record[3] = 3
-                    elif result[3] == "四":
-                        self.record[3] = 4
-                    elif result[3] == "五":
-                        self.record[3] = 5
-                    elif result[3] == "六":
-                        self.record[3] = 6
-                    elif result[3] == "七":
-                        self.record[3] = 7
-                    elif result[3] == "八":
-                        self.record[3] = 8
-                    elif result[3] == "九":
-                        self.record[3] = 9
-                if self.record[0] == 0 or self.record[1] == 0 or self.record[2] == 0 or self.record[3] == 0:
-                    self.record = [0, 0, 0, 0]
-                    print("语音指令错误！")
-                else:
-                    my_event = event.Event(USEREVENT + 1)
-                    event.post(my_event)
-                    tm.sleep(0.5)
-        my_event = event.Event(USEREVENT + 2)
+    def postevent(self, num):
+        my_event = event.Event(USEREVENT + num)
         event.post(my_event)
-
+    
     def quit(self):
         my_event = event.Event(USEREVENT + 8)
         event.post(my_event)
@@ -662,9 +483,6 @@ class ChineseChess:
         self.name = name
         self.client = client
         self.order = order
-        self.record_thread = threading.Thread(target=self.record_voice)
-        self.record_thread.setDaemon(True)
-        self.record_thread.start()
         self.new_game(self.order)
 
         while True:
@@ -728,25 +546,29 @@ class ChineseChess:
             # 显示回合
             if self.start or self.load:
                 if self.who_go % 2 == 0:
-                    self.text_display(self.main_window, self.red, '红方', 30, [900, 717], 'simhei')
+                    self.text_display(self.main_window, self.red, '对方回合', 30, [900, 717], 'simhei')
                 else:
-                    self.text_display(self.main_window, self.black, '黑方', 30, [900, 717], 'simhei')
+                    self.text_display(self.main_window, self.black, '您的回合', 30, [900, 717], 'simhei')
             if self.start or self.load:
                 self.over = self.game_over()
                 if self.over == 1:
                     self.text_display(self.main_window, self.black, '游戏结束', 100, [self.window_width // 2, self.window_height // 2], 'simhei')
-                    tm.sleep(1)
-                    quit()
-                    break
 
             self.mouse_up = False
             for Event in event.get():
                 if Event.type == QUIT:
-                    send_msg = {'type': 'quit', 'name': self.name}
-                    send_json = json.dumps(send_msg)
-                    self.client.send(send_json.encode())
-                    quit()
-                    break
+                    if self.over == 1:
+                        send_msg = {'type': 'exit', 'name': self.name}
+                        send_json = json.dumps(send_msg)
+                        self.client.send(send_json.encode())
+                        quit()
+                        break
+                    else:
+                        send_msg = {'type': 'quit', 'name': self.name}
+                        send_json = json.dumps(send_msg)
+                        self.client.send(send_json.encode())
+                        quit()
+                        break
                 if Event.type == MOUSEBUTTONUP:
                     self.mouse_up = True
                     if 385 > self.Mouse[1] or 425 < self.Mouse[1] and self.Mouse[0] < 800:
@@ -756,11 +578,18 @@ class ChineseChess:
                     if self.who_go % 2 == 1 and self.over != 1:
                         self.voice_control(1)  # eg. chess = [709, 707, 9, 8] - x, y, row, col
                 if Event.type == USEREVENT + 2:
-                    send_msg = {'type': 'quit', 'name': self.name}
-                    send_json = json.dumps(send_msg)
-                    self.client.send(send_json.encode())
-                    quit()
-                    break
+                    if self.over == 1:
+                        send_msg = {'type': 'exit', 'name': self.name}
+                        send_json = json.dumps(send_msg)
+                        self.client.send(send_json.encode())
+                        quit()
+                        break
+                    else:
+                        send_msg = {'type': 'quit', 'name': self.name}
+                        send_json = json.dumps(send_msg)
+                        self.client.send(send_json.encode())
+                        quit()
+                        break
                 if Event.type == USEREVENT + 7:
                     self.voice_control(0)
                 if Event.type == USEREVENT + 8:
