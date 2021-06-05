@@ -137,8 +137,8 @@ def runGame(screen, game_level):
             if event.type == pygame.QUIT or event.type == USEREVENT + 2:
                 pygame.quit()
                 sys.exit(0)
-            elif event.type == pygame.KEYDOWN or ((event.type > USEREVENT + 2) and (event.type < USEREVENT + 8)):
-                if event.key == pygame.K_LEFT or event.type == USEREVENT + 3:
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_LEFT:
                     next_pos = game_interface.player.move('left', is_test=True)
                     if game_interface.game_map.isValidPos(*next_pos):
                         game_interface.player.move('left')
@@ -150,7 +150,7 @@ def runGame(screen, game_level):
                                 game_interface.player.move('left')
                                 box.move('left')
                     break
-                if event.key == pygame.K_RIGHT or event.type == USEREVENT + 4:
+                if event.key == pygame.K_RIGHT:
                     next_pos = game_interface.player.move('right', is_test=True)
                     if game_interface.game_map.isValidPos(*next_pos):
                         game_interface.player.move('right')
@@ -162,7 +162,7 @@ def runGame(screen, game_level):
                                 game_interface.player.move('right')
                                 box.move('right')
                     break
-                if event.key == pygame.K_DOWN or event.type == USEREVENT + 6:
+                if event.key == pygame.K_DOWN:
                     next_pos = game_interface.player.move('down', is_test=True)
                     if game_interface.game_map.isValidPos(*next_pos):
                         game_interface.player.move('down')
@@ -174,7 +174,7 @@ def runGame(screen, game_level):
                                 game_interface.player.move('down')
                                 box.move('down')
                     break
-                if event.key == pygame.K_UP or event.type == USEREVENT + 5:
+                if event.key == pygame.K_UP:
                     next_pos = game_interface.player.move('up', is_test=True)
                     if game_interface.game_map.isValidPos(*next_pos):
                         game_interface.player.move('up')
@@ -186,7 +186,59 @@ def runGame(screen, game_level):
                                 game_interface.player.move('up')
                                 box.move('up')
                     break
-                if event.key == pygame.K_r or event.type == USEREVENT + 7:
+                if event.key == pygame.K_r:
+                    game_interface.initGame()
+                    game_interface.loadLevel(game_level)
+            elif (event.type > USEREVENT + 2) and (event.type < USEREVENT + 8):
+                if event.type == USEREVENT + 3:
+                    next_pos = game_interface.player.move('left', is_test=True)
+                    if game_interface.game_map.isValidPos(*next_pos):
+                        game_interface.player.move('left')
+                    else:
+                        box = game_interface.game_map.getBox(*next_pos)
+                        if box:
+                            next_pos = box.move('left', is_test=True)
+                            if game_interface.game_map.isValidPos(*next_pos):
+                                game_interface.player.move('left')
+                                box.move('left')
+                    break
+                if  event.type == USEREVENT + 4:
+                    next_pos = game_interface.player.move('right', is_test=True)
+                    if game_interface.game_map.isValidPos(*next_pos):
+                        game_interface.player.move('right')
+                    else:
+                        box = game_interface.game_map.getBox(*next_pos)
+                        if box:
+                            next_pos = box.move('right', is_test=True)
+                            if game_interface.game_map.isValidPos(*next_pos):
+                                game_interface.player.move('right')
+                                box.move('right')
+                    break
+                if event.type == USEREVENT + 6:
+                    next_pos = game_interface.player.move('down', is_test=True)
+                    if game_interface.game_map.isValidPos(*next_pos):
+                        game_interface.player.move('down')
+                    else:
+                        box = game_interface.game_map.getBox(*next_pos)
+                        if box:
+                            next_pos = box.move('down', is_test=True)
+                            if game_interface.game_map.isValidPos(*next_pos):
+                                game_interface.player.move('down')
+                                box.move('down')
+                    break
+                if event.type == USEREVENT + 5:
+                    next_pos = game_interface.player.move('up', is_test=True)
+                    if game_interface.game_map.isValidPos(*next_pos):
+                        game_interface.player.move('up')
+                    else:
+                        box = game_interface.game_map.getBox(*next_pos)
+                        if box:
+                            next_pos = box.move('up', is_test=True)
+                            if game_interface.game_map.isValidPos(*next_pos):
+                                game_interface.player.move('up')
+                                box.move('up')
+                    break
+                if event.type == USEREVENT + 7:
                     game_interface.initGame()
                     game_interface.loadLevel(game_level)
         game_interface.draw(game_interface.player, game_interface.game_map)
@@ -267,23 +319,27 @@ def record_voice():
         })["result"])
         print(result)
 
-        if result == "结束。":
+        if result == "开始。" or result == "开始游戏。":
+            my_event = event.Event(USEREVENT + 1)
+            event.post(my_event)
+            continue
+        elif result == "结束。":
             my_event = event.Event(USEREVENT + 2)
             event.post(my_event)
             break
-        elif result == "左。":
+        elif result == "向左。":
             my_event = event.Event(USEREVENT + 3)
             event.post(my_event)
             continue
-        elif result == "右。":
+        elif result == "向右。":
             my_event = event.Event(USEREVENT + 4)
             event.post(my_event)
             continue
-        elif result == "上。":
+        elif result == "向上。":
             my_event = event.Event(USEREVENT + 5)
             event.post(my_event)
             continue
-        elif result == "下。":
+        elif result == "向下。":
             my_event = event.Event(USEREVENT + 6)
             event.post(my_event)
             continue
@@ -301,7 +357,7 @@ def main():
     record_thread = threading.Thread(target=record_voice)
     record_thread.daemon = True
 
-    pygame.display.set_caption('推箱子 —— Charles的皮卡丘')
+    pygame.display.set_caption('推箱子')
     screen = pygame.display.set_mode(cfg.SCREENSIZE)
     pygame.mixer.init()
     audio_path = os.path.join(cfg.AUDIODIR, 'EineLiebe.mp3')

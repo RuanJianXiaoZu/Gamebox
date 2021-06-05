@@ -1,11 +1,22 @@
 import os
 import sys
 import time
+import random
+import wave
+import threading
 from enum import Enum
 import pygame
+from pygame import event
+from pygame.constants import USEREVENT
 from pygame.locals import *
-from mineblock import *
+import numpy as np
+import pyaudio
+from aip import AipSpeech
 
+BLOCK_WIDTH = 9
+BLOCK_HEIGHT = 9
+SIZE = 25           # 块大小
+MINE_COUNT = 10     # 地雷数
 
 # 游戏屏幕的宽
 SCREEN_WIDTH = BLOCK_WIDTH * SIZE
@@ -20,16 +31,320 @@ class GameStatus(Enum):
     win = 4
 
 
+class BlockStatus(Enum):
+    normal = 1  # 未点击
+    opened = 2  # 已点击
+    mine = 3    # 地雷
+    flag = 4    # 标记为地雷
+    ask = 5     # 标记为问号
+    bomb = 6    # 踩中地雷
+    hint = 7    # 被双击的周围
+    double = 8  # 正被鼠标左右键双击
+
+
+class Mine:
+    def __init__(self, x, y, value=0):
+        self._x = x
+        self._y = y
+        self._value = 0
+        self._around_mine_count = -1
+        self._status = BlockStatus.normal
+        self.set_value(value)
+
+    def __repr__(self):
+        return str(self._value)
+        # return f'({self._x},{self._y})={self._value}, status={self.status}'
+
+    def get_x(self):
+        return self._x
+
+    def set_x(self, x):
+        self._x = x
+
+    x = property(fget=get_x, fset=set_x)
+
+    def get_y(self):
+        return self._y
+
+    def set_y(self, y):
+        self._y = y
+
+    y = property(fget=get_y, fset=set_y)
+
+    def get_value(self):
+        return self._value
+
+    def set_value(self, value):
+        if value:
+            self._value = 1
+        else:
+            self._value = 0
+
+    value = property(fget=get_value, fset=set_value, doc='0:非地雷 1:雷')
+
+    def get_around_mine_count(self):
+        return self._around_mine_count
+
+    def set_around_mine_count(self, around_mine_count):
+        self._around_mine_count = around_mine_count
+
+    around_mine_count = property(fget=get_around_mine_count, fset=set_around_mine_count, doc='四周地雷数量')
+
+    def get_status(self):
+        return self._status
+
+    def set_status(self, value):
+        self._status = value
+
+    status = property(fget=get_status, fset=set_status, doc='BlockStatus')
+
+
+class MineBlock:
+    def __init__(self):
+        self._block = [[Mine(i, j) for i in range(BLOCK_WIDTH)] for j in range(BLOCK_HEIGHT)]
+
+        # 埋雷
+        for i in random.sample(range(BLOCK_WIDTH * BLOCK_HEIGHT), MINE_COUNT):
+            self._block[i // BLOCK_WIDTH][i % BLOCK_WIDTH].value = 1
+
+    def get_block(self):
+        return self._block
+
+    block = property(fget=get_block)
+
+    def getmine(self, x, y):
+        return self._block[y][x]
+
+    def open_mine(self, x, y):
+        # 踩到雷了
+        if self._block[y][x].value:
+            self._block[y][x].status = BlockStatus.bomb
+            return False
+
+        # 先把状态改为 opened
+        self._block[y][x].status = BlockStatus.opened
+
+        around = _get_around(x, y)
+
+        _sum = 0
+        for i, j in around:
+            if self._block[j][i].value:
+                _sum += 1
+        self._block[y][x].around_mine_count = _sum
+
+        # 如果周围没有雷，那么将周围8个未中未点开的递归算一遍
+        # 这就能实现一点出现一大片打开的效果了
+        if _sum == 0:
+            for i, j in around:
+                if self._block[j][i].around_mine_count == -1:
+                    self.open_mine(i, j)
+
+        return True
+
+    def double_mouse_button_down(self, x, y):
+        if self._block[y][x].around_mine_count == 0:
+            return True
+
+        self._block[y][x].status = BlockStatus.double
+
+        around = _get_around(x, y)
+
+        sumflag = 0     # 周围被标记的雷数量
+        for i, j in _get_around(x, y):
+            if self._block[j][i].status == BlockStatus.flag:
+                sumflag += 1
+        # 周边的雷已经全部被标记
+        result = True
+        if sumflag == self._block[y][x].around_mine_count:
+            for i, j in around:
+                if self._block[j][i].status == BlockStatus.normal:
+                    if not self.open_mine(i, j):
+                        result = False
+        else:
+            for i, j in around:
+                if self._block[j][i].status == BlockStatus.normal:
+                    self._block[j][i].status = BlockStatus.hint
+        return result
+
+    def double_mouse_button_up(self, x, y):
+        self._block[y][x].status = BlockStatus.opened
+        for i, j in _get_around(x, y):
+            if self._block[j][i].status == BlockStatus.hint:
+                self._block[j][i].status = BlockStatus.normal
+
+
+def _get_around(x, y):
+    """返回(x, y)周围的点的坐标"""
+    # 这里注意，range 末尾是开区间，所以要加 1
+    return [(i, j) for i in range(max(0, x - 1), min(BLOCK_WIDTH - 1, x + 1) + 1)
+            for j in range(max(0, y - 1), min(BLOCK_HEIGHT - 1, y + 1) + 1) if i != x or j != y]
+
+
+
 def print_text(screen, font, x, y, text, fcolor=(255, 255, 255)):
     imgText = font.render(text, True, fcolor)
     screen.blit(imgText, (x, y))
+
+
+def ShowStartInterface(screen, width, height):
+    screen.fill((255, 255, 255))
+    tfont = pygame.font.Font(os.path.join(os.getcwd(), 'Minesweeper/resources/FZSTK.TTF'), width//2)
+    cfont = pygame.font.Font(os.path.join(os.getcwd(), 'Minesweeper/resources/FZSTK.TTF'), width//10)
+    title = tfont.render('扫雷', True, (255, 0, 0))
+    content1 = cfont.render('初级(L)', True, (0, 0, 255))
+    content2 = cfont.render('中级(M)', True, (0, 0, 255))
+    content3 = cfont.render('高级(H)', True, (0, 0, 255))
+    trect = title.get_rect()
+    trect.midtop = (width/2, height/10)
+    crect1 = content1.get_rect()
+    crect1.midtop = (width/2, height/1.8)
+    crect2 = content2.get_rect()
+    crect2.midtop = (width/2, height/1.5)
+    crect3 = content3.get_rect()
+    crect3.midtop = (width/2, height/1.27)
+    screen.blit(title, trect)
+    screen.blit(content1, crect1)
+    screen.blit(content2, crect2)
+    screen.blit(content3, crect3)
+    global BLOCK_WIDTH, BLOCK_HEIGHT, SIZE, MINE_COUNT, SCREEN_WIDTH, SCREEN_HEIGHT
+    while True:
+        for event in pygame.event.get():
+            if (event.type == pygame.QUIT) or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE) or (event.type == USEREVENT + 2):
+                isOver = True
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == ord('l'): return 2
+                elif event.key == ord('m'):
+                    BLOCK_WIDTH = 16
+                    BLOCK_HEIGHT = 16
+                    MINE_COUNT = 40     
+                    SCREEN_WIDTH = BLOCK_WIDTH * SIZE
+                    SCREEN_HEIGHT = (BLOCK_HEIGHT + 2) * SIZE
+                    return 3
+                elif event.key == ord('h'):
+                    BLOCK_WIDTH = 30
+                    BLOCK_HEIGHT = 16
+                    MINE_COUNT = 99     
+                    SCREEN_WIDTH = BLOCK_WIDTH * SIZE
+                    SCREEN_HEIGHT = (BLOCK_HEIGHT + 2) * SIZE
+                    return 4
+            elif event.type == USEREVENT + 2: return 2
+            elif event.type == USEREVENT + 3:
+                BLOCK_WIDTH = 16
+                BLOCK_HEIGHT = 16
+                MINE_COUNT = 40     
+                SCREEN_WIDTH = BLOCK_WIDTH * SIZE
+                SCREEN_HEIGHT = (BLOCK_HEIGHT + 2) * SIZE
+                return 3
+            elif event.type == USEREVENT + 4:
+                BLOCK_WIDTH = 30
+                BLOCK_HEIGHT = 16
+                MINE_COUNT = 99     
+                SCREEN_WIDTH = BLOCK_WIDTH * SIZE
+                SCREEN_HEIGHT = (BLOCK_HEIGHT + 2) * SIZE
+                return 4
+        pygame.display.update()
+
+
+def get_file_content(file_path):
+    with open(file_path, 'rb') as fp:
+        return fp.read()
+
+
+def record_voice():
+    APP_ID = '24142986'
+    API_KEY = 'lz8wrZPBovwoWXqpL2FRBtDX'
+    SECRET_KEY = '34kKxkbMKB8VaqWZRQxV1y4QbPNW0xkG'
+
+    client = AipSpeech(APP_ID, API_KEY, SECRET_KEY)
+
+    CHUNK = 1024
+    FORMAT = pyaudio.paInt16  # 16bit编码格式
+    CHANNELS = 1  # 单声道
+    RATE = 16000  # 16000采样频率
+
+    while True:
+        p = pyaudio.PyAudio()
+        # 创建音频流
+        stream = p.open(format=FORMAT,  # 音频流wav格式
+                        channels=CHANNELS,  # 单声道
+                        rate=RATE,  # 采样率16000
+                        input=True,
+                        frames_per_buffer=CHUNK)
+        print("Start Recording...")
+        frames = []  # 录制的音频流
+        # 录制音频数据
+        while True:
+            # print("begin")
+            for i in range(0, 2):
+                data1 = stream.read(CHUNK)
+                frames.append(data1)
+            audio_data1 = np.frombuffer(data1, dtype=np.short)
+            temp1 = np.max(audio_data1)
+            if temp1 > 550:
+                less = 0
+                while True:
+                    # print("recording")
+                    for i in range(0, 5):
+                        data2 = stream.read(CHUNK)
+                        frames.append(data2)
+                    audio_data2 = np.frombuffer(data2, dtype=np.short)
+                    temp2 = np.max(audio_data2)
+                    if temp2 < 550:
+                        less = less + 1
+                        if less == 2:
+                            break
+                    else:
+                        less = 0
+                break
+            else:
+                frames = []
+        # 录制完成
+        stream.stop_stream()
+        stream.close()
+        p.terminate()
+        print("Recording Done...")
+        # 保存音频文件
+        with wave.open("./1.wav", 'wb') as wf:
+            wf.setnchannels(CHANNELS)
+            wf.setsampwidth(p.get_sample_size(FORMAT))
+            wf.setframerate(RATE)
+            wf.writeframes(b''.join(frames))
+            wf.close()
+        
+        result = ''.join(client.asr(get_file_content('1.wav'), 'wav', 16000, {
+            'dev_pid': 1537,  # 默认1537（普通话 输入法模型）
+        })["result"])
+        print(result)
+
+        if result == "初级。":
+            my_event = event.Event(USEREVENT + 2)
+            event.post(my_event)
+            continue
+        elif result == "中级。":
+            my_event = event.Event(USEREVENT + 3)
+            event.post(my_event)
+            continue
+        elif result == "高级。":
+            my_event = event.Event(USEREVENT + 4)
+            event.post(my_event)
+            continue
+        elif result == "结束。":
+            my_event = event.Event(QUIT)
+            event.post(my_event)
+            break
 
 
 def main():
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption('扫雷')
+    record_thread.start()
+    ShowStartInterface(screen, SCREEN_WIDTH, SCREEN_HEIGHT)
 
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    pygame.display.set_caption('扫雷')
     font1 = pygame.font.Font(os.path.join(os.getcwd(), 'Minesweeper/resources/a.TTF'), SIZE * 2)  # 得分的字体
     fwidth, fheight = font1.size('999')
     red = (200, 40, 40)
@@ -173,10 +488,12 @@ def main():
                 elif mine.status == BlockStatus.normal:
                     screen.blit(img_blank, pos)
 
-        print_text(screen, font1, 30, (SIZE * 2 - fheight) // 2 - 2, '%02d' % (MINE_COUNT - flag_count), red)
+        # 计数
+        print_text(screen, font1, face_pos_x // 2 - 12, (SIZE * 2 - fheight) // 2 - 2, '%02d' % (MINE_COUNT - flag_count), red)
         if game_status == GameStatus.started:
             elapsed_time = int(time.time() - start_time)
-        print_text(screen, font1, face_pos_x + 37, (SIZE * 2 - fheight) // 2 - 2, '%03d' % elapsed_time, red)
+        # 计时
+        print_text(screen, font1, (SCREEN_WIDTH + face_pos_x) // 2 - 18, (SIZE * 2 - fheight) // 2 - 2, '%03d' % elapsed_time, red)
 
         if flag_count + opened_count == BLOCK_WIDTH * BLOCK_HEIGHT:
             game_status = GameStatus.win
@@ -191,5 +508,6 @@ def main():
         pygame.display.update()
 
 
-if __name__ == '__main__':
-    main()
+record_thread = threading.Thread(target=record_voice)
+record_thread.daemon = True
+main()
