@@ -254,7 +254,7 @@ class Client(QWidget):
         self.exit_button.clicked.connect(self.exit_program)
         self.client = socket.socket()
         self.client.connect(("127.0.0.1", 8989))
-        self.list1.clicked.connect(self.choose_user)
+        self.list1.clicked.connect(self.invite_user)
         self.list2.clicked.connect(self.reserve_user)
         Thread(target=self.get_msg).start()
         self.signal1.connect(self.show_invitation)
@@ -615,7 +615,7 @@ class Client(QWidget):
         self.destroy()
         sys.exit()
 
-    def choose_user(self, qModelIndex): 
+    def invite_user(self, qModelIndex): 
         i = 0
         for user in self.users:
             if user['status'] == '空闲':
