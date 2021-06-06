@@ -415,7 +415,7 @@ def main():
 
         for event in pygame.event.get():
             if event.type == QUIT:
-                sys.exit()
+                os.system('taskkill /PID ' + str(os.getpid()) + ' /T /F')
             elif event.type == MOUSEBUTTONDOWN:
                 mouse_x, mouse_y = event.pos
                 x = mouse_x // SIZE
