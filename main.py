@@ -12,13 +12,16 @@ from aip import AipSpeech
 import time
 from threading import Thread
 
-
 dirname, filename = os.path.split(os.path.abspath(__file__))
 os.chdir(dirname)
 
 
 class WindowClass(QMainWindow):
+
     signal = pyqtSignal()
+
+
+
     def __init__(self):
 
         super(WindowClass, self).__init__()
@@ -94,6 +97,7 @@ class WindowClass(QMainWindow):
 
     def game_8(self):
         self.destroy()
+
         sys.exit()
 
 

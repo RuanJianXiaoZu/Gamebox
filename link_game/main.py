@@ -8,9 +8,8 @@ import tkinter as tk
 import tkinter.messagebox
 import pyaudio
 import threading
+import sys
 from PIL import Image, ImageTk
-
-#from voice_control import voice
 
 dirname=os.path.split(os.path.abspath(__file__))[0]
 os.chdir(dirname)
@@ -204,6 +203,10 @@ class MainWindow():
 		else:
 			return Point(point.x, point.y+1)
 
+	'''
+	语音控制
+	'''
+
 	def voice(self):
 		APP_ID = '24142986'
 		API_KEY = 'lz8wrZPBovwoWXqpL2FRBtDX'
@@ -289,6 +292,9 @@ class MainWindow():
 				point = Point(5, 5)
 				self.drawSelectedArea(point)
 				continue
+			if result=="退出。":		
+				root.destroy()				
+				break
 			if result=="向左。":
 				self.canvas.delete("rectRedOne")
 				point = self.left(point)
