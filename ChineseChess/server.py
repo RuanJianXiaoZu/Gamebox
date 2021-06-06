@@ -7,7 +7,7 @@ class Server:
 
     def __init__(self):
         self.server = socket.socket()
-        self.server.bind(("192.168.43.197", 8989))
+        self.server.bind(("127.0.0.1", 8989))
         self.server.listen(10)
         self.client_dicts = []
         self.user_dicts = []
