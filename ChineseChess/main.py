@@ -8,6 +8,7 @@ import wave
 import numpy as np
 import pyaudio
 from aip import AipSpeech
+import os
 
 
 def text_objects(text, font, color):
@@ -721,7 +722,7 @@ while True:
     mouse_up = False
     for Event in event.get():
         if Event.type == QUIT:
-            sys.exit()
+            os.system('taskkill /PID ' + str(os.getpid()) + ' /T /F')
         if Event.type == MOUSEBUTTONUP:
             mouse_up = True
             print(Mouse)
@@ -736,7 +737,7 @@ while True:
             elif who_go % 2 == 1 and over != 1:
                 voice_control(1)
         if Event.type == USEREVENT + 2:
-            sys.exit()
+            os.system('taskkill /PID ' + str(os.getpid()) + ' /T /F')
         if Event.type == USEREVENT + 3:
             new_game()
         if Event.type == USEREVENT + 4:
