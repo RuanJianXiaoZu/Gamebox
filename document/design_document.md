@@ -231,12 +231,20 @@ if recv_msg['type'] == 'accept':
     self.signal.emit() # 发送信号触发槽函数
 ```
 ### 主界面模块
-#### 结构设计
-
-#### 数据设计
-
-#### 接口设计
-
 #### 界面设计
-
+主界面使用pyqt5进行界面设计。  
+![图片](主界面.GIF "流程结构")  
+#### 接口设计
+人机交互
++ 与客户端相同主界面使用了pyqt5的connect方法允许用户点击按钮进行交互。
+  ```python
+  self.button_1.clicked.connect(self.game_1) # 点击按钮开始游戏或退出主界面
+  ```
+开始游戏
++ 使用system函数在cmd中运行命令以打开相应游戏。
+  ```python
+  def game_1(self):
+      os.system('python ./ChineseChess/main.py') # 使用system函数在cmd中运行命令以打开相应游戏
+  ```
 #### 出错处理
+由于os.system函数是阻塞的，意味着打开一个游戏后主界面就被阻塞了，此时无法对主界面进行任何操作。
