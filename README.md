@@ -1,7 +1,7 @@
 # Gamebox
 
 ### 游戏
-- ChineseChess 象棋
+- ChineseChess 象棋（可以选择单机或联机模式）
 - Gobang 五子棋
 - link game 连连看
 - Minesweeper 扫雷
