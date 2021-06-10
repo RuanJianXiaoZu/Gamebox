@@ -227,16 +227,16 @@ class Gobang(game.Game):
             if result == "结束。":
                 os.system('taskkill /PID ' + str(os.getpid()) + ' /T /F')
                 break
-            elif result == "上。":
+            elif result == "向上。":
                 self.move('u')
                 continue
-            elif result == "下。":
+            elif result == "向下。":
                 self.move('d')
                 continue
-            elif result == "左。":
+            elif result == "向左。":
                 self.move('l')
                 continue
-            elif result == "右。":
+            elif result == "向右。":
                 self.move('r')
                 continue
             elif result == "确认。":
