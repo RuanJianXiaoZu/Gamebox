@@ -1,4 +1,3 @@
-import PySimpleGUI as sg
 import os
 import sys
 from PyQt5.QtGui import *

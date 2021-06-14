@@ -1,0 +1,7 @@
+Pillow==7.0.0
+PyAudio==0.2.11
+PyQt5==5.15.4
+PyQtWebEngine==5.15.4
+baidu-aip==2.2.18.0
+numpy==1.19.5
+pygame==2.0.1
